@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Spray Annual ROI Calculator - MSU Extension</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --msu-primary: #162960; /* MSU Blue */
+            --msu-secondary: #4A4A4A; /* Darker Gray for text */
+            --msu-accent: #F4B425;   /* MSU Gold */
+            --msu-light-accent: #FDF0D5; /* Lighter Gold/Cream for backgrounds */
+            --msu-white: #FFFFFF;
+            --msu-light-gray: #F0F0F0; /* Lighter gray for backgrounds */
+            --msu-medium-gray: #D1D5DB; /* For borders */
+            --msu-weed-green: #2E7D32; /* Darker Green for weeds */
+            --msu-success: #2E7D32; /* Green for positive ROI elements */
+            --msu-error: #D32F2F; /* Red for errors/negative values */
+            --msu-info: #1976D2; /* Blue for informational elements */
+            --msu-light-gold-spray: #FBE6AA; /* New lighter gold for rate reduced spray */
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif; /* Using a common sans-serif font */
+            color: var(--msu-secondary);
+        }
+
+        .tooltip-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip-content {
+            visibility: hidden;
+            width: 250px;
+            background-color: var(--msu-white);
+            color: var(--msu-secondary);
+            text-align: left;
+            border-radius: 6px;
+            padding: 10px;
+            position: absolute;
+            z-index: 50;
+            bottom: 135%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s, visibility 0.3s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-size: 0.875rem;
+            border: 1px solid var(--msu-medium-gray);
+            pointer-events: none;
+        }
+
+        .tooltip-container:hover .tooltip-content,
+        .tooltip-container button:focus + .tooltip-content,
+        .tooltip-content.active {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        input[type=range] {
+            accent-color: var(--msu-primary);
+        }
+        input[type=number], input[type=text] {
+            border-color: var(--msu-medium-gray);
+        }
+        input:focus, select:focus {
+            border-color: var(--msu-primary) !important;
+            box-shadow: 0 0 0 2px var(--msu-accent) !important;
+        }
+
+        .input-error {
+            border: 2px solid red !important;
+        }
+
+        /* Adjusted for text truncation fix */
+        .visualization-desc {
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+            color: var(--msu-secondary);
+            height: auto; /* Removed fixed height */
+            line-height: 1.25em;
+            overflow: visible; /* Removed overflow hidden */
+        }
+        /* Adjusted for text truncation fix */
+        .visualization-item h4 {
+            height: auto; /* Removed fixed height */
+            line-height: 1.25em;
+            overflow: visible; /* Removed overflow hidden */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center; /* Ensure text is centered */
+            white-space: normal; /* Allow wrapping for the title */
+        }
+
+
+        button svg {
+            color: inherit;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000; /* Ensure modal is above everything */
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6);
+        }
+
+        .modal-content {
+            background-color: var(--msu-white);
+            margin: 8% auto;
+            padding: 25px;
+            border: 1px solid var(--msu-medium-gray);
+            width: 90%;
+            max-width: 750px;
+            border-radius: 8px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.25);
+            color: var(--msu-secondary);
+        }
+
+        .modal-header {
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--msu-light-gray);
+            margin-bottom: 20px;
+        }
+        .modal-header h2 {
+            margin: 0;
+            color: var(--msu-primary);
+            font-size: 1.75rem;
+            font-weight: 600;
+        }
+
+        .modal-body {
+            font-size: 0.95rem;
+            line-height: 1.7;
+            max-height: 65vh;
+            overflow-y: auto;
+            padding-right: 10px; /* For scrollbar */
+        }
+        .modal-body h3 {
+            color: var(--msu-primary);
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-top: 20px;
+            margin-bottom: 8px;
+        }
+        .modal-body p, .modal-body ul {
+            margin-bottom: 12px;
+        }
+        .modal-body ul {
+            list-style-type: disc;
+            margin-left: 25px;
+        }
+        .modal-body strong {
+            color: var(--msu-primary);
+            font-weight: 600;
+        }
+
+        .close-button {
+            color: var(--msu-secondary);
+            float: right;
+            font-size: 32px;
+            font-weight: bold;
+            line-height: 1;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: var(--msu-primary);
+            text-decoration: none;
+        }
+        /* Footer style for the main page */
+        #mainFooter {
+            font-size: 0.875rem;
+            color: var(--msu-secondary);
+            padding-top: 20px;
+            margin-top: 30px;
+            border-top: 1px solid var(--msu-medium-gray);
+        }
+        .primary-button {
+            background-color: var(--msu-primary);
+            color: var(--msu-white);
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        .primary-button:hover {
+            background-color: #0F1E4A; /* Darker MSU Blue */
+        }
+        .secondary-button {
+            background-color: var(--msu-accent);
+            color: var(--msu-primary); /* Changed to primary for better contrast or could be white */
+            padding: 8px 16px; /* Slightly smaller than primary */
+            border-radius: 6px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+            border: 1px solid var(--msu-primary); /* Added border for definition */
+        }
+        .secondary-button:hover {
+            background-color: #DDA420; /* Darker MSU Gold */
+        }
+        .section-card {
+            background-color: var(--msu-white);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+        }
+        .input-section-card {
+             background-color: var(--msu-light-gray);
+             padding: 20px;
+             border-radius: 8px;
+             box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        }
+        .results-summary-card {
+            background-color: var(--msu-light-accent);
+             padding: 20px;
+             border-radius: 8px;
+             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+             margin-bottom: 24px;
+        }
+
+        /* Ensure SVG backgrounds from JS are visible if they match the card bg by default */
+        #conventional-svg, #smart-svg, #smart-spray-reduced-svg {
+            background-color: transparent; /* Allow JS to set fill or use parent bg */
+        }
+
+
+        /* For PDF Export - elements to hide */
+        .hide-for-pdf {
+            display: none !important;
+        }
+
+        /* Responsive adjustments for visualization containers */
+        .visualization-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem; /* gap-6 */
+        }
+
+        @media (min-width: 768px) { /* md breakpoint */
+            .visualization-container {
+                flex-direction: row;
+                justify-content: space-around; /* Distribute space around items */
+            }
+            .visualization-item {
+                flex: 1; /* Distribute space equally */
+                min-width: 0; /* Allow shrinking */
+                max-width: 48%; /* Adjusted for two items */
+                display: flex; /* Make it a flex container */
+                flex-direction: column; /* Stack children vertically */
+                align-items: center; /* Center children horizontally */
+                text-align: center; /* Ensure text is centered */
+            }
+            .visualization-item svg { /* Target the SVG within the item */
+                width: 100%; /* Make SVG fill its parent's width */
+                height: auto;
+            }
+        }
+        /* Further adjust for very small screens if needed */
+        @media (max-width: 640px) { /* sm breakpoint */
+             .visualization-item {
+                max-width: 100%; /* Full width on extra small screens */
+            }
+        }
+
+        /* Loading Overlay Styles */
+        .loading-overlay {
+            display: none; /* Hidden by default */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1001; /* Above modal */
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 1.5rem;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid var(--msu-accent); /* MSU Gold */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+    </style>
+</head>
+<body class="bg-gray-200 p-4 md:p-8">
+
+    <div class="bg-white rounded-xl shadow-2xl max-w-6xl mx-auto" id="exportableResults">
+      <div class="p-6 md:p-8">
+        <header class="mb-8 border-b border-gray-300 pb-6">
+            <div class="flex flex-col sm:flex-row items-center justify-between">
+                <div>
+                    <h1 class="text-2xl md:text-4xl font-bold" style="color: var(--msu-primary);">Smart Spray Annual ROI Calculator</h1>
+                    <h2 class="text-lg md:text-xl" style="color: var(--msu-secondary);">MSU Extension - Narc Precision Agriculture Lab</h2>
+                </div>
+                <button id="savePdfButton" class="primary-button mt-4 sm:mt-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mr-2 align-text-bottom"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Save Results (PDF)
+                </button>
+            </div>
+        </header>
+
+        <div class="grid md:grid-cols-3 gap-x-8 gap-y-6">
+            <div class="md:col-span-1" id="inputsToHideForPdf">
+                <div class="input-section-card">
+                    <h3 class="text-xl font-semibold mb-5" style="color: var(--msu-primary);">Farm & System Parameters</h3>
+                    <div class="space-y-5">
+                        <div>
+                            <div class="flex items-center justify-between mb-1"> <label for="acres" class="block text-sm font-medium" style="color: var(--msu-secondary);">Acres</label> <div class="tooltip-container"> <button class="text-gray-500 hover:text-gray-800 focus:outline-none focus:ring-1 focus:ring-[var(--msu-primary)] rounded-full p-0.5" aria-label="Info about Acres" type="button"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> </button> <div class="tooltip-content">The total acreage that will be treated with herbicide applications.</div> </div> </div>
+                            <input type="number" id="acres" name="acres" value="1000" min="0" step="10" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-offset-1 focus:ring-[var(--msu-primary)] focus:outline-none"  placeholder="Enter Value"/>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between mb-1"> <label for="chemicalCostPerAcre" class="block text-sm font-medium" style="color: var(--msu-secondary);">Chemical Cost ($/acre)</label> <div class="tooltip-container"> <button class="text-gray-500 hover:text-gray-800 focus:outline-none focus:ring-1 focus:ring-[var(--msu-primary)] rounded-full p-0.5" aria-label="Info about Chemical Cost" type="button"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> </button> <div class="tooltip-content">The average cost of chemicals applied per acre in a standard (broadcast) application.</div> </div> </div>
+                            <input type="number" id="chemicalCostPerAcre" name="chemicalCostPerAcre" value="25" min="0" step="1" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-offset-1 focus:ring-[var(--msu-primary)] focus:outline-none"  placeholder="Enter Value"/>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between mb-1"> <label for="applicationRateGPA" class="block text-sm font-medium" style="color: var(--msu-secondary);">Application Rate (GPA)</label> <div class="tooltip-container"> <button class="text-gray-500 hover:text-gray-800 focus:outline-none focus:ring-1 focus:ring-[var(--msu-primary)] rounded-full p-0.5" aria-label="Info about Application Rate" type="button"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> </button> <div class="tooltip-content">Gallons Per Acre - the standard volume of spray mixture applied per acre during a conventional broadcast application.</div> </div> </div>
+                            <input type="number" id="applicationRateGPA" name="applicationRateGPA" value="10" min="1" step="1" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-offset-1 focus:ring-[var(--msu-primary)] focus:outline-none"  placeholder="Enter Value"/>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between mb-1"> <label for="numberOfApplications" class="block text-sm font-medium" style="color: var(--msu-secondary);">Applications Per Year</label> <div class="tooltip-container"> <button class="text-gray-500 hover:text-gray-800 focus:outline-none focus:ring-1 focus:ring-[var(--msu-primary)] rounded-full p-0.5" aria-label="Info about Applications Per Year" type="button"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> </button> <div class="tooltip-content">The typical number of separate herbicide applications performed across the total acreage annually.</div> </div> </div>
+                            <input type="number" id="numberOfApplications" name="numberOfApplications" value="3" min="1" step="1" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-offset-1 focus:ring-[var(--msu-primary)] focus:outline-none"  placeholder="Enter Value"/>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between mb-1"> <label for="weedPercentage" class="block text-sm font-medium" style="color: var(--msu-secondary);">Weed Coverage (%)</label> <div class="tooltip-container"> <button class="text-gray-500 hover:text-gray-800 focus:outline-none focus:ring-1 focus:ring-[var(--msu-primary)] rounded-full p-0.5" aria-label="Info about Weed Coverage" type="button"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> </button> <div class="tooltip-content">Estimate the percentage of the total field area that is actually covered by weeds requiring treatment. Smart sprayers target only these areas, reducing spray on bare ground.</div> </div> </div>
+                            <input type="range" id="weedPercentage" name="weedPercentage" min="0" max="100" value="20" step="1" class="w-full h-2.5 bg-gray-300 rounded-lg appearance-none cursor-pointer range-lg" />
+                            <div class="text-center font-medium mt-1.5" style="color: var(--msu-primary);"><span id="weedPercentageValue">20</span>%</div>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between mb-1"> <label for="systemCost" class="block text-sm font-medium" style="color: var(--msu-secondary);">Smart Spray System Cost ($)</label> <div class="tooltip-container"> <button class="text-gray-500 hover:text-gray-800 focus:outline-none focus:ring-1 focus:ring-[var(--msu-primary)] rounded-full p-0.5" aria-label="Info about System Cost" type="button"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> </button> <div class="tooltip-content">The total estimated cost to purchase and install a smart spray system (e.g., Green-on-Green technology) on your existing sprayer equipment.</div> </div> </div>
+                            <input type="number" id="systemCost" name="systemCost" value="75000" min="0" step="1000" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-offset-1 focus:ring-[var(--msu-primary)] focus:outline-none"  placeholder="Enter Value"/>
+                        </div>
+                         <div>
+                            <div class="flex items-center justify-between mb-1"> <label for="subscriptionCostPerAcre" class="block text-sm font-medium" style="color: var(--msu-secondary);">Annual Subscription Cost ($/acre)</label> <div class="tooltip-container"> <button class="text-gray-500 hover:text-gray-800 focus:outline-none focus:ring-1 focus:ring-[var(--msu-primary)] rounded-full p-0.5" aria-label="Info about Annual Subscription Cost" type="button"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> </button> <div class="tooltip-content">The annual per-acre subscription fee for the smart spray system's software, data services, or ongoing support.</div> </div> </div>
+                            <input type="number" id="subscriptionCostPerAcre" name="subscriptionCostPerAcre" value="0" min="0" step="0.1" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-offset-1 focus:ring-[var(--msu-primary)] focus:outline-none"  placeholder="Enter Value"/>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between mb-1"> <label for="laborCostPerHour" class="block text-sm font-medium" style="color: var(--msu-secondary);">Labor Cost ($/hour)</label> <div class="tooltip-container"> <button class="text-gray-500 hover:text-gray-800 focus:outline-none focus:ring-1 focus:ring-[var(--msu-primary)] rounded-full p-0.5" aria-label="Info about Labor Cost" type="button"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> </button> <div class="tooltip-content">The fully-loaded hourly cost of the operator's labor, including wages, benefits, insurance, and taxes.</div> </div> </div>
+                            <input type="number" id="laborCostPerHour" name="laborCostPerHour" value="20" min="0" step="1" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-offset-1 focus:ring-[var(--msu-primary)] focus:outline-none"  placeholder="Enter Value"/>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between mb-1"> <label for="acres_per_hour_conventional" class="block text-sm font-medium" style="color: var(--msu-secondary);">Conventional Sprayer (ac/hr)</label> <div class="tooltip-container"> <button class="text-gray-500 hover:text-gray-800 focus:outline-none focus:ring-1 focus:ring-[var(--msu-primary)] rounded-full p-0.5" aria-label="Info about Conventional Sprayer Speed" type="button"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> </button> <div class="tooltip-content">How many acres can typically be covered per hour of operation (including travel, spraying, turns; excluding filling/mixing) with your conventional spraying setup.</div> </div> </div>
+                            <input type="number" id="acres_per_hour_conventional" name="acres_per_hour_conventional" value="50" min="1" step="1" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-offset-1 focus:ring-[var(--msu-primary)] focus:outline-none"  placeholder="Enter Value"/>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between mb-1"> <label for="acres_per_hour_smartspray" class="block text-sm font-medium" style="color: var(--msu-secondary);">Smart Sprayer (ac/hr)</label> <div class="tooltip-container"> <button class="text-gray-500 hover:text-gray-800 focus:outline-none focus:ring-1 focus:ring-[var(--msu-primary)] rounded-full p-0.5" aria-label="Info about Smart Sprayer Speed" type="button"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> </button> <div class="tooltip-content">How many acres can typically be covered per hour of operation with the smart spray system active. This might be slightly slower due to processing or system limitations.</div> </div> </div>
+                            <input type="number" id="acres_per_hour_smartspray" name="acres_per_hour_smartspray" value="45" min="1" step="1" class="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-offset-1 focus:ring-[var(--msu-primary)] focus:outline-none"  placeholder="Enter Value"/>
+                        </div>
+                        <div>
+                            <div class="flex items-center justify-between mb-1"> <label for="chemicalReductionPercent" class="block text-sm font-medium" style="color: var(--msu-secondary);">Rate Reduction on Weeds (%)</label> <div class="tooltip-container"> <button class="text-gray-500 hover:text-gray-800 focus:outline-none focus:ring-1 focus:ring-[var(--msu-primary)] rounded-full p-0.5" aria-label="Info about Chemical Rate Reduction on Weeds" type="button"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> </button> <div class="tooltip-content">The percentage reduction in chemical rate applied *specifically to the weed-covered areas* compared to the standard broadcast rate (GPA). Example: If set to 70%, the smart sprayer applies only 30% of the standard rate on detected weeds. Set to 0% if the system only turns nozzles on/off without reducing the rate on weeds.</div> </div> </div>
+                            <input type="range" id="chemicalReductionPercent" name="chemicalReductionPercent" min="0" max="90" value="0" step="5" class="w-full h-2.5 bg-gray-300 rounded-lg appearance-none cursor-pointer range-lg" />
+                            <div class="text-center font-medium mt-1.5" style="color: var(--msu-primary);"><span id="chemicalReductionPercentValue">70</span>%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="md:col-span-2">
+                <div class="results-summary-card">
+                    <h3 class="text-xl font-semibold mb-5" style="color: var(--msu-primary);">Summary Results</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="bg-white p-4 rounded-lg shadow"> <div class="flex items-center justify-between"> <div class="text-sm" style="color: var(--msu-secondary);">Annual Savings</div> <div class="tooltip-container"> <button class="text-gray-500 hover:text-gray-800 focus:outline-none focus:ring-1 focus:ring-[var(--msu-primary)] rounded-full p-0.5" aria-label="Info about Annual Savings" type="button"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> </button> <div class="tooltip-content">Total estimated savings per year from using smart spray technology, considering both chemical and labor cost differences.</div> </div> </div> <div id="annualSavings" class="text-3xl font-bold">$0</div> </div>
+                        <div class="bg-white p-4 rounded-lg shadow"> <div class="flex items-center justify-between"> <div class="text-sm" style="color: var(--msu-secondary);">ROI (%)</div> <div class="tooltip-container"> <button class="text-gray-500 hover:text-gray-800 focus:outline-none focus:ring-1 focus:ring-[var(--msu-primary)] rounded-full p-0.5" aria-label="Info about ROI" type="button"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> </button> <div class="tooltip-content">Return on Investment: Annual savings expressed as a percentage of the initial smart spray system cost. (Annual Savings / System Cost) * 100.</div> </div> </div> <div id="roi" class="text-3xl font-bold" style="color: var(--msu-primary);">0.0%</div> </div>
+                        <div class="bg-white p-4 rounded-lg shadow"> <div class="flex items-center justify-between"> <div class="text-sm" style="color: var(--msu-secondary);">Payback Period (Years)</div> <div class="tooltip-container"> <button class="text-gray-500 hover:text-gray-800 focus:outline-none focus:ring-1 focus:ring-[var(--msu-primary)] rounded-full p-0.5" aria-label="Info about Payback Period" type="button"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> </button> <div class="tooltip-content">The number of years it will take for the accumulated annual savings to equal the initial smart spray system cost. (System Cost / Annual Savings).</div> </div> </div> <div id="paybackPeriod" class="text-3xl font-bold" style="color: var(--msu-primary);">0.0 years</div> </div>
+                        <div class="bg-white p-4 rounded-lg shadow"> <div class="flex items-center justify-between"> <div class="text-sm" style="color: var(--msu-secondary);">Overall Chemical Reduction (%)</div> <div class="tooltip-container"> <button class="text-gray-500 hover:text-gray-800 focus:outline-none focus:ring-1 focus:ring-[var(--msu-primary)] rounded-full p-0.5" aria-label="Info about Chemical Reduction" type="button"> <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> </button> <div class="tooltip-content">The total percentage reduction in chemical volume used across the entire field compared to conventional broadcast spraying. Takes into account both spraying only on weeds (Weed Coverage) and applying a reduced rate on those weeds (Rate Reduction).</div> </div> </div> <div id="chemicalReductionPercentTotal" class="text-3xl font-bold" style="color: var(--msu-primary);">0.0%</div> </div>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <h3 class="text-xl font-semibold mb-5" style="color: var(--msu-primary);">Field Application Visualization</h3>
+                    <div class="visualization-container">
+                        <div class="text-center visualization-item">
+                            <h4 class="font-semibold mb-2 text-base" style="color: var(--msu-primary);">Conventional Spraying</h4>
+                            <svg id="conventional-svg" width="100%" height="auto" viewBox="0 0 250 250" class="border-2 border-gray-300 aspect-square rounded"></svg>
+                            <div id="conventional-svg-desc" class="visualization-desc text-center">Full field sprayed.</div>
+                        </div>
+                        <div class="text-center visualization-item">
+                            <h4 class="font-semibold mb-2 text-base" style="color: var(--msu-primary);">Smart Spraying</h4>
+                            <svg id="smart-svg" width="100%" height="auto" viewBox="0 0 250 250" class="border-2 border-gray-300 aspect-square rounded"></svg>
+                            <div id="smart-svg-desc" class="visualization-desc text-center">Targeted spray on weeds.</div>
+                        </div>
+                        </div>
+                    <div class="mt-6 text-center">
+                        <div class="flex justify-center items-center gap-x-6 gap-y-2 flex-wrap">
+                            <div class="flex items-center">
+                                <svg width="20" height="20" viewBox="0 0 20 20" class="mr-2">
+                                    <path d="M10 0 C5 5 5 15 10 20 C15 15 15 5 10 0 Z" fill="var(--msu-weed-green)"/>
+                                </svg>
+                                <span class="text-sm">Weeds</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-5 h-5 mr-2 border border-gray-500 rounded-sm" style="background-color: var(--msu-accent);" title="Sprayed Area"></div>
+                                <span class="text-sm">Sprayed</span>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-5 h-5 mr-2 border border-gray-500 rounded-sm" style="background-color: var(--msu-light-accent);" title="Unsprayed Area"></div>
+                                <span class="text-sm">Unsprayed Area</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-6">
+                    <div class="section-card">
+                        <h3 class="text-lg font-semibold mb-4" style="color: var(--msu-primary);">Conventional Spraying (Annual)</h3>
+                        <div class="space-y-3 text-sm">
+                            <div> <span style="color: var(--msu-secondary);">Chemical Cost:</span> <div id="conventionalChemicalCost" class="font-semibold text-base float-right">$0</div> </div>
+                            <div class="clear-both"></div>
+                            <div> <span style="color: var(--msu-secondary);">Chemical Volume:</span> <div id="conventionalGallonsUsed" class="font-semibold text-base float-right">0 gal</div> </div>
+                            <div class="clear-both"></div>
+                            <div> <span style="color: var(--msu-secondary);">Labor Hours:</span> <div id="conventionalLaborHours" class="font-semibold text-base float-right">0 hrs</div> </div>
+                            <div class="clear-both"></div>
+                            <div> <span style="color: var(--msu-secondary);">Labor Cost:</span> <div id="conventionalLaborCost" class="font-semibold text-base float-right">$0</div> </div>
+                            <div class="clear-both"></div>
+                             <div> <span style="color: var(--msu-secondary);">Subscription Cost:</span> <div id="conventionalSubscriptionCost" class="font-semibold text-base float-right">$0</div> </div>
+                            <div class="clear-both"></div>
+                            <hr class="my-3 border-gray-300">
+                            <div> <span class="font-semibold" style="color: var(--msu-secondary);">Total Annual Cost:</span> <div id="conventionalTotalCost" class="font-bold text-lg float-right" style="color: var(--msu-primary);">$0</div> </div>
+                            <div class="clear-both"></div>
+                        </div>
+                    </div>
+                    <div class="section-card">
+                        <h3 class="text-lg font-semibold mb-4" style="color: var(--msu-primary);">Smart Spraying (Annual)</h3>
+                        <div class="space-y-3 text-sm">
+                            <div> <span style="color: var(--msu-secondary);">Chemical Cost:</span> <div id="smartChemicalCost" class="font-semibold text-base float-right">$0</div> </div>
+                            <div class="clear-both"></div>
+                            <div> <span style="color: var(--msu-secondary);">Chemical Volume:</span> <div id="smartGallonsUsed" class="font-semibold text-base float-right">0 gal</div> </div>
+                            <div class="clear-both"></div>
+                            <div> <span style="color: var(--msu-secondary);">Labor Hours:</span> <div id="smartLaborHours" class="font-semibold text-base float-right">0 hrs</div> </div>
+                            <div class="clear-both"></div>
+                            <div> <span style="color: var(--msu-secondary);">Labor Cost:</span> <div id="smartLaborCost" class="font-semibold text-base float-right">$0</div> </div>
+                            <div class="clear-both"></div>
+                            <div> <span style="color: var(--msu-secondary);">Subscription Cost:</span> <div id="smartSubscriptionCost" class="font-semibold text-base float-right">$0</div> </div>
+                            <div class="clear-both"></div>
+                            <hr class="my-3 border-gray-300">
+                            <div> <span class="font-semibold" style="color: var(--msu-secondary);">Total Annual Cost:</span> <div id="smartTotalCost" class="font-bold text-lg float-right" style="color: var(--msu-primary);">$0</div> </div>
+                            <div class="clear-both"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <div id="pdfSecondPageContent" class="hide-for-pdf" style="padding: 40px; box-sizing: border-box; background-color: var(--msu-white);">
+        <div id="pdfInputsSummarySection" class="section-card mt-0 mb-8">
+            <h3 class="text-xl font-semibold mb-3" style="color: var(--msu-primary);">Input Parameters Summary</h3>
+            <div id="pdfInputsContent" class="space-y-1 text-sm">
+                </div>
+        </div>
+
+        <div id="pdfFooterContent" class="text-center text-sm">
+            <p>&copy; <span id="currentYearPdf"></span> MSU Extension. All Rights Reserved. For educational purposes only.</p>
+            <p class="mt-1">Developed by MSU Extension. For questions, contact:
+                <a href="https://agresearch.montana.edu/directory/faculty/2537306/ricardo-pinto" target="_blank" rel="noopener noreferrer" class="font-semibold hover:underline" style="color: var(--msu-primary);">
+                    Ricardo Pinto, Precision Agriculture Research and Extension Specialist
+                </a>.
+            </p>
+            <p class="mt-2 text-xs">Current Date: <span id="currentDatePdf"></span> | Location: Northern Ag Research Center 3710 Assinniboine Road Havre, Montana 59501-8412 </p>
+            <p class="text-xs mt-2">This calculator provides estimates and should not be solely relied upon for financial decisions. Consult with financial advisors and technical experts.</p>
+        </div>
+    </div>
+
+    <footer id="mainFooter" class="mt-10 pt-6 border-t border-gray-300 text-center text-sm">
+        <p>For details on calculations, see the <a href="#" id="calculationDocLink" class="text-blue-600 hover:underline">Calculation Documentation</a>.</p>
+        <p class="mt-2">&copy; <span id="currentYear"></span> MSU Extension. All Rights Reserved. For educational purposes only.</p>
+        <p class="mt-1">Developed by MSU Extension. For questions, contact:
+            <a href="https://agresearch.montana.edu/directory/faculty/2537306/ricardo-pinto" target="_blank" rel="noopener noreferrer" class="font-semibold hover:underline" style="color: var(--msu-primary);">
+                Ricardo Pinto, Precision Agriculture Research and Extension Specialist
+            </a>.
+        </p>
+        <p class="mt-2 text-xs">Current Date: <span id="currentDateFooter"></span> | Location: Northern Ag Research Center 3710 Assinniboine Road Havre, Montana 59501-8412 </p>
+        <p class="text-xs mt-2">This calculator provides estimates and should not be solely relied upon for financial decisions. Consult with financial advisors and technical experts.</p>
+    </footer>
+
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p>Generating PDF...</p>
+    </div>
+
+    <div id="calculationModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span class="close-button" id="closeModalButton">&times;</span>
+          <h2>Calculation Methodology & Usage</h2>
+        </div>
+        <div class="modal-body">
+          <p>This calculator estimates the potential Return on Investment (ROI) from adopting a smart spray system compared to conventional broadcast spraying. The calculations are based on the parameters you provide.</p>
+          <h3>Input Parameters:</h3>
+          <ul>
+            <li><strong>Acres:</strong> Total farm acreage to be sprayed per application.</li>
+            <li><strong>Chemical Cost ($/acre):</strong> Cost of herbicide for one acre using conventional broadcast.</li>
+            <li><strong>Application Rate (GPA):</strong> Gallons Per Acre typically sprayed. This is used to calculate total chemical volume.</li>
+            <li><strong>Applications Per Year:</strong> Number of times the total acreage is sprayed annually.</li>
+            <li><strong>Weed Coverage (%):</strong> Your estimate of the actual field area covered by weeds. This is key for smart spraying as it determines the area targeted.</li>
+            <li><strong>Smart Spray System Cost ($):</strong> Total upfront cost of the smart spray technology.</li>
+            <li><strong>Annual Subscription Cost ($/acre):</strong> The annual per-acre fee for the smart spray system's software, data services, or ongoing support.</li>
+            <li><strong>Labor Cost ($/hour):</strong> Operator's hourly hourly wage.</li>
+            <li><strong>Conventional Sprayer (ac/hr):</strong> Work rate of your current sprayer.</li>
+            <li><strong>Smart Sprayer (ac/hr):</strong> Work rate of the smart sprayer (can be same or different to the work rate of current conventional sprayer).</li>
+            <li><strong>Rate Reduction on Weeds (%):</strong> The percentage reduction in chemical rate applied *specifically to the weed-covered areas* compared to the standard broadcast rate. If the system only turns nozzles on/off over weeds but applies the full rate, this should be 0%. If it applies, for example, 30% of the standard rate on weeds, this value would be 70% (meaning 70% less chemical is used on the weed patch compared to broadcast).</li>
+          </ul>
+          <h3>Calculation Breakdown:</h3>
+          <ul>
+            <li><strong>Total Acres Treated Annually (Conv.):</strong> Acres &times; Applications Per Year</li>
+            <li><strong>Total Chemical Volume (Conv.):</strong> Total Acres Treated Annually (Conv.) &times; Application Rate (GPA)</li>
+            <li><strong>Total Chemical Cost (Conv.):</strong> Total Acres Treated Annually (Conv.) &times; Chemical Cost Per Acre</li>
+            <li><strong>Total Labor Hours (Conv.):</strong> Total Acres Treated Annually (Conv.) / Conventional Sprayer (ac/hr)</li>
+            <li><strong>Total Labor Cost (Conv.):</strong> Total Labor Hours (Conv.) &times; Labor Cost ($/hour)</li>
+            <li><strong>Annual Subscription Cost (Conv.):</strong> $0 (Assuming no subscription cost for conventional spraying)</li>
+            <li><strong>Total Annual Cost (Conv.):</strong> Total Chemical Cost (Conv.) + Total Labor Cost (Conv.) + Annual Subscription Cost (Conv.)</li>
+          </ul>
+          <h4>2. Smart Spraying Costs & Volume (Annual):</h4>
+          <ul>
+            <li><strong>Total Acres Treated Annually (Smart):</strong> Acres &times; Applications Per Year</li>
+            <li><strong>Effective Sprayed Area Factor:</strong> Weed Coverage (%!) / 100</li>
+            <li><strong>Effective Rate Factor:</strong> 1 - (Rate Reduction on Weeds (%) / 100)</li>
+            <li><strong>Overall Chemical Use Factor:</strong> Effective Sprayed Area Factor &times; Effective Rate Factor
+                <br><small><em>This factor represents the proportion of chemicals used by smart spray relative to conventional broadcast over the same total area. If Rate Reduction on Weeds is 0%, this simplifies to just the Weed Coverage factor.</em></small>
+            </li>
+            <li><strong>Total Chemical Volume (Smart):</strong> Total Chemical Volume (Conv.) &times; Overall Chemical Use Factor</li>
+            <li><strong>Total Chemical Cost (Smart):</strong> Total Chemical Cost (Conv.) &times; Overall Chemical Use Factor</li>
+            <li><strong>Total Labor Hours (Smart):</strong> Total Acres Treated Annually (Smart) &divide; Smart Sprayer (ac/hr)</li>
+            <li><strong>Total Labor Cost (Smart):</strong> Total Labor Hours (Smart) &times; Labor Cost ($/hour)</li>
+            <li><strong>Annual Subscription Cost (Smart):</strong> Acres &times; Annual Subscription Cost ($/acre)</li>
+            <li><strong>Total Annual Cost (Smart):</strong> Total Chemical Cost (Smart) + Total Labor Cost (Smart) + Annual Subscription Cost (Smart)</li>
+          </ul>
+            <h4>3. ROI & Payback:</h4>
+          <ul>
+            <li><strong>Annual Savings:</strong> Total Annual Cost (Conv.) - Total Annual Cost (Smart)</li>
+            <li><strong>Return on Investment (ROI %):</strong> (Annual Savings &divide; Smart Spray System Cost) &times; 100</li>
+            <li><strong>Payback Period (Years):</strong> Smart Spray System Cost &divide; Annual Savings (if Annual Savings > 0)</li>
+            <li><strong>Overall Chemical Reduction (%):</strong> (1 - Overall Chemical Use Factor) &times; 100</li>
+          </ul>
+          <h3>Visualizations:</h3>
+          <ul>
+            <li><strong>Field Application Visualization:</strong> Shows a simplified representation of a field.
+                <ul>
+                    <li><em>Conventional:</em> The entire area is shown as sprayed.</li>
+                    <li><em>Smart Spray:</em> Only designated "weed patches" (based on Weed Coverage %!) are shown as sprayed, with an intensity reflecting the 'Rate Reduction on Weeds'.</li>
+                </ul>
+            </li>
+            <li><strong>Gallons/Year in Visualizations:</strong> The approximate gallons/year displayed below each visualization represents the total annual chemical volume for that specific spraying scenario.
+                <ul>
+                    <li>For Conventional Spraying, it's calculated as: <code>Acres &times; Application Rate (GPA) &times; Applications Per Year</code>.</li>
+                    <li>For Smart Spraying, it's calculated as: <code>Conventional Gallons &times; (Weed Coverage / 100) &times; (1 - Rate Reduction on Weeds / 100)</code>.</li>
+                </ul>
+            </li>
+          </ul>
+          <p><strong>Disclaimer:</strong> This calculator is for estimation purposes only. Actual field conditions, equipment performance, and economic factors can vary. Consult with agricultural experts for detailed advice.</p>
+        </div>
+      </div>
+    </div>
+
+<script>
+    const msuColors = {
+        primary: '#162960',
+        secondary: '#4A4A4A',
+        accent: '#F4B425', /* MSU Gold */
+        lightAccent: '#FDF0D5', /* Lighter Gold/Cream for backgrounds */
+        white: '#FFFFFF',
+        lightGray: '#F0F0F0',
+        weedGreen: '#2E7D32', /* Darker Green for weeds */
+        success: '#2E7D32',
+        error: '#D32F2F', // Added for negative values
+        info: '#1976D2',
+        lightGoldSpray: '#FBE6AA' /* New lighter gold for rate reduced spray */
+    };
+
+    const inputs = {
+        acres: document.getElementById('acres'),
+        chemicalCostPerAcre: document.getElementById('chemicalCostPerAcre'),
+        applicationRateGPA: document.getElementById('applicationRateGPA'),
+        numberOfApplications: document.getElementById('numberOfApplications'),
+        weedPercentage: document.getElementById('weedPercentage'),
+        systemCost: document.getElementById('systemCost'),
+        subscriptionCostPerAcre: document.getElementById('subscriptionCostPerAcre'),
+        laborCostPerHour: document.getElementById('laborCostPerHour'),
+        acresPerHourConventional: document.getElementById('acres_per_hour_conventional'),
+        acresPerHourSmartSpray: document.getElementById('acres_per_hour_smartspray'),
+        chemicalReductionPercent: document.getElementById('chemicalReductionPercent'),
+    };
+
+    const outputs = {
+        annualSavings: document.getElementById('annualSavings'),
+        roi: document.getElementById('roi'),
+        paybackPeriod: document.getElementById('paybackPeriod'),
+        chemicalReductionPercentTotal: document.getElementById('chemicalReductionPercentTotal'),
+        conventionalChemicalCost: document.getElementById('conventionalChemicalCost'),
+        conventionalGallonsUsed: document.getElementById('conventionalGallonsUsed'),
+        conventionalLaborHours: document.getElementById('conventionalLaborHours'),
+        conventionalLaborCost: document.getElementById('conventionalLaborCost'),
+        conventionalSubscriptionCost: document.getElementById('conventionalSubscriptionCost'),
+        conventionalTotalCost: document.getElementById('conventionalTotalCost'),
+        smartChemicalCost: document.getElementById('smartChemicalCost'),
+        smartGallonsUsed: document.getElementById('smartGallonsUsed'),
+        smartLaborHours: document.getElementById('smartLaborHours'),
+        smartLaborCost: document.getElementById('smartLaborCost'),
+        smartSubscriptionCost: document.getElementById('smartSubscriptionCost'),
+        smartTotalCost: document.getElementById('smartTotalCost'),
+        weedPercentageValue: document.getElementById('weedPercentageValue'),
+        chemicalReductionPercentValue: document.getElementById('chemicalReductionPercentValue'),
+        legendWeedPercent: document.getElementById('legendWeedPercent'),
+        currentDate: document.getElementById('currentDate'),
+    };
+
+    const conventionalSvg = document.getElementById('conventional-svg');
+    const smartSvg = document.getElementById('smart-svg');
+    const conventionalSvgDesc = document.getElementById('conventional-svg-desc');
+    const smartSvgDesc = document.getElementById('smart-svg-desc');
+    const loadingOverlay = document.getElementById('loadingOverlay'); // Get loading overlay element
+
+    function formatCurrency(value) {
+        const numValue = parseFloat(value);
+        if (isNaN(numValue) || !isFinite(numValue)) {
+            return 'N/A';
+        }
+        return '$' + numValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function formatNumber(value, decimalPlaces = 1, unit = '') {
+        const numValue = parseFloat(value);
+        if (isNaN(numValue) || !isFinite(numValue)) {
+            return `N/A${unit}`;
+        }
+        return numValue.toLocaleString(undefined, { minimumFractionDigits: decimalPlaces, maximumFractionDigits: decimalPlaces }) + unit;
+    }
+
+    // Helper function to draw a simple plant icon
+    function drawPlantIcon(svgElement, x, y, cellSize, color) {
+        const iconSize = cellSize * 0.7; // Make icon slightly smaller than cell
+        const offsetX = (cellSize - iconSize) / 2;
+        const offsetY = (cellSize - iconSize) / 2;
+
+        const plantGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        // Scale and translate the group to fit within the cell
+        plantGroup.setAttribute('transform', `translate(${x + offsetX}, ${y + offsetY}) scale(${iconSize / 20})`); // Scale based on 20x20 viewBox
+
+        // Improved plant path (a more organic leaf shape)
+        const plantPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        plantPath.setAttribute('d', 'M10 0 C5 5 5 15 10 20 C15 15 15 5 10 0 Z'); // A simple, stylized leaf shape
+        plantPath.setAttribute('fill', color);
+        plantGroup.appendChild(plantPath);
+
+        svgElement.appendChild(plantGroup);
+    }
+
+
+    function updateVisualizations(weedCoverage, rateReductionOnWeeds) {
+        const svgSize = 250;
+        const numCells = 15;
+        const cellSize = svgSize / numCells;
+
+        const totalCells = numCells * numCells;
+        const weedCellsCount = Math.floor(totalCells * (weedCoverage / 100));
+        const cellIndices = Array.from(Array(totalCells).keys());
+
+        // Shuffle cell indices once for random weed placement, to be used by all SVGs
+        for (let i = cellIndices.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [cellIndices[i], cellIndices[j]] = [cellIndices[j], cellIndices[i]];
+        }
+
+        // --- Conventional Spray Visualization ---
+        if (conventionalSvg) {
+            conventionalSvg.innerHTML = '';
+            // Fill the entire SVG with gold to represent the sprayed area
+            const fullSprayRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            fullSprayRect.setAttribute('x', 0);
+            fullSprayRect.setAttribute('y', 0);
+            fullSprayRect.setAttribute('width', svgSize);
+            fullSprayRect.setAttribute('height', svgSize);
+            fullSprayRect.setAttribute('fill', msuColors.accent); // Gold color for sprayed area
+            conventionalSvg.appendChild(fullSprayRect);
+
+            for (let i = 0; i < totalCells; i++) {
+                const cellIndex = cellIndices[i];
+                const row = Math.floor(cellIndex / numCells);
+                const col = cellIndex % numCells;
+                const x = col * cellSize;
+                const y = row * cellSize;
+
+                // Draw plant icon at weed locations
+                if (i < weedCellsCount) {
+                    drawPlantIcon(conventionalSvg, x, y, cellSize, msuColors.weedGreen); // Green plant icon
+                }
+            }
+        }
+         if (conventionalSvgDesc) {
+            const acres = parseFloat(inputs.acres.value) || 0;
+            const applicationRateGPA = parseFloat(inputs.applicationRateGPA.value) || 0;
+            const numberOfApplications = parseInt(inputs.numberOfApplications.value) || 0;
+            const convTotalGallonsAnnually = acres * applicationRateGPA * numberOfApplications;
+
+            conventionalSvgDesc.textContent = `Approx. ${convTotalGallonsAnnually.toLocaleString(undefined, { maximumFractionDigits: 0 })} gallons/year. Full field sprayed.`;
+        }
+
+        // --- Smart Spray Visualization ---
+        if (smartSvg) {
+            smartSvg.innerHTML = '';
+            const smartBgRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+            smartBgRect.setAttribute('x', 0);
+            smartBgRect.setAttribute('y', 0);
+            smartBgRect.setAttribute('width', svgSize);
+            smartBgRect.setAttribute('height', svgSize);
+            smartBgRect.setAttribute('fill', msuColors.lightAccent); // Unsprayed background
+            smartSvg.appendChild(smartBgRect);
+
+            for (let i = 0; i < totalCells; i++) {
+                const cellIndex = cellIndices[i]; // Use the same shuffled indices
+                const row = Math.floor(cellIndex / numCells);
+                const col = cellIndex % numCells;
+                const x = col * cellSize;
+                const y = row * cellSize;
+
+                // Draw the smart spray overlay for weed cells (solid square as requested)
+                if (i < weedCellsCount) {
+                    const smartSprayRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    smartSprayRect.setAttribute('x', x);
+                    smartSprayRect.setAttribute('y', y);
+                    smartSprayRect.setAttribute('width', cellSize);
+                    smartSprayRect.setAttribute('height', cellSize);
+                    smartSprayRect.setAttribute('fill', msuColors.accent); // Gold for smart spray on weeds (full rate)
+                    smartSprayRect.setAttribute('opacity', '0.7'); // Fixed opacity for base smart spray
+                    smartSvg.appendChild(smartSprayRect);
+
+                    drawPlantIcon(smartSvg, x, y, cellSize, msuColors.weedGreen); // Draw green plant icon
+                }
+            }
+        }
+        if (smartSvgDesc) {
+            const acres = parseFloat(inputs.acres.value) || 0;
+            const applicationRateGPA = parseFloat(inputs.applicationRateGPA.value) || 0;
+            const numberOfApplications = parseInt(inputs.numberOfApplications.value) || 0;
+            const currentWeedPercentage = parseFloat(inputs.weedPercentage.value) || 0;
+            const currentChemicalReductionOnWeeds = parseFloat(inputs.chemicalReductionPercent.value) || 0;
+
+            // Apply rate reduction to the smart spray visualization description
+            const weedPercentageDecimal = currentWeedPercentage / 100;
+            const chemicalReductionOnWeedsDecimal = currentChemicalReductionOnWeeds / 100;
+            const smartSprayEffectiveRateMultiplier = weedPercentageDecimal * (1 - chemicalReductionOnWeedsDecimal);
+            const smartTotalGallonsAnnually = (acres * applicationRateGPA * numberOfApplications) * smartSprayEffectiveRateMultiplier;
+            const overallChemicalReduction = 1 - smartSprayEffectiveRateMultiplier;
+
+            smartSvgDesc.textContent = `Approx. ${smartTotalGallonsAnnually.toLocaleString(undefined, { maximumFractionDigits: 0 })} gallons/year. Targeted spray on ${currentWeedPercentage.toFixed(0)}% weed coverage. Overall reduction: ${(overallChemicalReduction * 100).toFixed(1)}%.`;
+        }
+    }
+
+
+    function calculateROI() {
+        let isValid = true;
+        const numberInputs = ['acres', 'chemicalCostPerAcre', 'applicationRateGPA', 'numberOfApplications', 'systemCost', 'subscriptionCostPerAcre', 'laborCostPerHour', 'acresPerHourConventional', 'acresPerHourSmartSpray'];
+        const positiveInputs = ['acres', 'chemicalCostPerAcre', 'applicationRateGPA', 'numberOfApplications', 'systemCost', 'laborCostPerHour', 'acresPerHourConventional', 'acresPerHourSmartSpray']; // These should be strictly positive
+
+        numberInputs.forEach(id => {
+            const inputElement = inputs[id];
+            if (!inputElement) return;
+
+            const value = parseFloat(inputElement.value);
+            const minAttr = parseFloat(inputElement.min);
+
+            // Check for empty string or NaN for all number inputs
+            if (inputElement.value.trim() === '' || isNaN(value)) {
+                inputElement.classList.add('input-error');
+                isValid = false;
+            } else if (positiveInputs.includes(id) && value <= 0) { // Check if positive number is expected and value is not positive
+                inputElement.classList.add('input-error');
+                isValid = false;
+            } else if (value < minAttr) { // Check against defined min attribute
+                inputElement.classList.add('input-error');
+                isValid = false;
+            } else {
+                inputElement.classList.remove('input-error');
+            }
+        });
+
+        if (!isValid) {
+            // If inputs are invalid, calculations will result in NaN or Infinity,
+            // which formatCurrency and formatNumber will convert to 'N/A'.
+            // We still want to update visualizations based on current (potentially invalid) slider values.
+            updateVisualizations(parseFloat(inputs.weedPercentage.value) || 0, parseFloat(inputs.chemicalReductionPercent.value) || 0);
+
+            // Set all output values to 'N/A' if any input is invalid
+            outputs.annualSavings.textContent = 'N/A';
+            outputs.annualSavings.style.color = msuColors.secondary; // Default color if invalid
+            outputs.roi.textContent = 'N/A';
+            outputs.paybackPeriod.textContent = 'N/A';
+            outputs.chemicalReductionPercentTotal.textContent = 'N/A';
+
+            outputs.conventionalChemicalCost.textContent = 'N/A';
+            outputs.conventionalGallonsUsed.textContent = 'N/A';
+            outputs.conventionalLaborHours.textContent = 'N/A';
+            outputs.conventionalLaborCost.textContent = 'N/A';
+            outputs.conventionalSubscriptionCost.textContent = 'N/A';
+            outputs.conventionalTotalCost.textContent = 'N/A';
+
+            outputs.smartChemicalCost.textContent = 'N/A';
+            outputs.smartGallonsUsed.textContent = 'N/A';
+            outputs.smartLaborHours.textContent = 'N/A';
+            outputs.smartLaborCost.textContent = 'N/A';
+            outputs.smartSubscriptionCost.textContent = 'N/A';
+            outputs.smartTotalCost.textContent = 'N/A';
+
+            return; // Stop calculation if validation fails
+        }
+
+        const A = parseFloat(inputs.acres.value);
+        const CC = parseFloat(inputs.chemicalCostPerAcre.value);
+        const AR = parseFloat(inputs.applicationRateGPA.value);
+        const N = parseFloat(inputs.numberOfApplications.value);
+        const WC = parseFloat(inputs.weedPercentage.value) / 100;
+        const SC = parseFloat(inputs.systemCost.value);
+        const SubC = parseFloat(inputs.subscriptionCostPerAcre.value);
+        const LC = parseFloat(inputs.laborCostPerHour.value);
+        const APH_C = parseFloat(inputs.acresPerHourConventional.value);
+        const APH_S = parseFloat(inputs.acresPerHourSmartSpray.value);
+        const RRW = parseFloat(inputs.chemicalReductionPercent.value) / 100;
+
+        // Conventional Calculations
+        const totalAcresTreatedAnnual = A * N;
+        const convTotalGallons = totalAcresTreatedAnnual * AR;
+        const convChemicalCost = totalAcresTreatedAnnual * CC;
+        const convLaborHours = totalAcresTreatedAnnual / APH_C;
+        const convLaborCost = convLaborHours * LC;
+        const convSubscriptionCost = 0; // Conventional systems typically don't have this
+        const convTotalCost = convChemicalCost + convLaborCost + convSubscriptionCost;
+
+        // Smart Spray Calculations (incorporating rate reduction)
+        const effectiveRateFactorOnWeeds = 1 - RRW;
+        const overallChemicalUseFactor = WC * effectiveRateFactorOnWeeds;
+
+        const smartTotalGallons = convTotalGallons * overallChemicalUseFactor;
+        const smartChemicalCost = convChemicalCost * overallChemicalUseFactor;
+
+        const smartLaborHours = totalAcresTreatedAnnual / APH_S;
+        const smartLaborCost = smartLaborHours * LC;
+        const smartSubscriptionCost = A * SubC;
+        const smartTotalCost = smartChemicalCost + smartLaborCost + smartSubscriptionCost;
+
+        // Results
+        const annualSavings = convTotalCost - smartTotalCost;
+        const roi = SC > 0 ? (annualSavings / SC) * 100 : (annualSavings > 0 ? Infinity : 0);
+        const paybackPeriod = annualSavings > 0 && SC > 0 ? SC / annualSavings : (annualSavings <= 0 ? Infinity : 0);
+        const chemicalReductionTotalPercent = (1 - overallChemicalUseFactor) * 100;
+
+
+        outputs.annualSavings.textContent = formatCurrency(annualSavings);
+        // Apply color based on annualSavings value
+        if (annualSavings < 0) {
+            outputs.annualSavings.style.color = msuColors.error;
+        } else {
+            outputs.annualSavings.style.color = msuColors.success;
+        }
+
+        outputs.roi.textContent = formatNumber(roi, 1, '%');
+        outputs.paybackPeriod.textContent = formatNumber(paybackPeriod, 1, ' years');
+        outputs.chemicalReductionPercentTotal.textContent = formatNumber(chemicalReductionTotalPercent, 1, '%');
+
+        outputs.conventionalChemicalCost.textContent = formatCurrency(convChemicalCost);
+        outputs.conventionalGallonsUsed.textContent = formatNumber(convTotalGallons, 0, ' gal');
+        outputs.conventionalLaborHours.textContent = formatNumber(convLaborHours, 1, ' hrs');
+        outputs.conventionalLaborCost.textContent = formatCurrency(convLaborCost);
+        outputs.conventionalSubscriptionCost.textContent = formatCurrency(convSubscriptionCost);
+        outputs.conventionalTotalCost.textContent = formatCurrency(convTotalCost);
+
+        outputs.smartChemicalCost.textContent = formatCurrency(smartChemicalCost);
+        outputs.smartGallonsUsed.textContent = formatNumber(smartTotalGallons, 0, ' gal');
+        outputs.smartLaborHours.textContent = formatNumber(smartLaborHours, 1, ' hrs');
+        outputs.smartLaborCost.textContent = formatCurrency(smartLaborCost);
+        outputs.smartSubscriptionCost.textContent = formatCurrency(smartSubscriptionCost);
+        outputs.smartTotalCost.textContent = formatCurrency(smartTotalCost);
+
+        // Only update the first two visualizations now
+        updateVisualizations(parseFloat(inputs.weedPercentage.value), parseFloat(inputs.chemicalReductionPercent.value));
+    }
+
+
+    // Event Listeners
+    Object.values(inputs).forEach(input => {
+        if (input) {
+             input.addEventListener('input', () => {
+                 if (input.type === 'range') {
+                     if (input.id === 'weedPercentage') outputs.weedPercentageValue.textContent = input.value;
+                     if (input.id === 'chemicalReductionPercent') outputs.chemicalReductionPercentValue.textContent = input.value;
+                 }
+                 calculateROI();
+             });
+        }
+    });
+
+    // Tooltip toggle for touch devices
+    document.querySelectorAll('.tooltip-container button').forEach(button => {
+        button.addEventListener('click', function(event) {
+            event.stopPropagation();
+            const tooltipContent = this.nextElementSibling;
+            const isActive = tooltipContent.classList.contains('active');
+            document.querySelectorAll('.tooltip-content.active').forEach(activeTooltip => {
+                if (activeTooltip !== tooltipContent) {
+                    activeTooltip.classList.remove('active');
+                }
+            });
+            tooltipContent.classList.toggle('active');
+        });
+    });
+
+    // Close tooltips when clicking outside
+    document.addEventListener('click', function(event) {
+        document.querySelectorAll('.tooltip-content.active').forEach(tooltip => {
+            const button = tooltip.previousElementSibling;
+             if (!tooltip.contains(event.target) && !button.contains(event.target)) {
+                 tooltip.classList.remove('active');
+             }
+        });
+    });
+
+
+    // Modal Functionality
+    const modal = document.getElementById("calculationModal");
+    const docLink = document.getElementById("calculationDocLink");
+    const closeButton = document.getElementById("closeModalButton");
+
+    if(docLink) docLink.onclick = function() { modal.style.display = "block"; }
+    if(closeButton) closeButton.onclick = function() { modal.style.display = "none"; }
+    window.onclick = function(event) {
+      if (event.target == modal) {
+        modal.style.display = "none";
+      }
+    }
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === "Escape" && modal.style.display === "block") {
+            modal.style.display = "none";
+        }
+    });
+
+
+    // Set current date (hardcoded as per user request)
+    if (outputs.currentDate) {
+        outputs.currentDate.textContent = 'May 27, 2025';
+    }
+    // Set current year for footer copyright
+    const currentYearSpan = document.getElementById('currentYear');
+     if (currentYearSpan) {
+         currentYearSpan.textContent = new Date().getFullYear();
+     }
+    // Set current date for footer copyright
+    const currentDateFooterSpan = document.getElementById('currentDateFooter');
+    if (currentDateFooterSpan) {
+        currentDateFooterSpan.textContent = 'May 27, 2025';
+    }
+    // Set current year for PDF footer copyright
+    const currentYearPdfSpan = document.getElementById('currentYearPdf');
+    if (currentYearPdfSpan) {
+        currentYearPdfSpan.textContent = new Date().getFullYear();
+    }
+    // Set current date for PDF footer copyright
+    const currentDatePdfSpan = document.getElementById('currentDatePdf');
+    if (currentDatePdfSpan) {
+        currentDatePdfSpan.textContent = 'May 27, 2025';
+    }
+
+
+    // PDF Export Functionality
+    document.getElementById('savePdfButton').addEventListener('click', async () => {
+        const { jsPDF } = window.jspdf;
+        const exportableMainContent = document.getElementById('exportableResults'); // Main content (Page 1)
+        const inputsToHideForPdf = document.getElementById('inputsToHideForPdf');
+        const pdfInputsSummarySection = document.getElementById('pdfInputsSummarySection'); // Summary section (Page 2)
+        const pdfInputsContent = document.getElementById('pdfInputsContent');
+        const pdfSecondPageContent = document.getElementById('pdfSecondPageContent'); // Container for Page 2 content
+        const saveButton = document.getElementById('savePdfButton');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const mainFooter = document.getElementById('mainFooter'); // Get the main footer
+
+        // Show loading overlay
+        loadingOverlay.style.display = 'flex';
+
+        // Prepare the inputs summary section content
+        pdfInputsContent.innerHTML = ''; // Clear previous content
+        for (const key in inputs) {
+            if (inputs.hasOwnProperty(key)) {
+                const inputElement = inputs[key];
+                const labelElement = document.querySelector(`label[for="${inputElement.id}"]`);
+                const labelText = labelElement ? labelElement.textContent.trim() : inputElement.name;
+                let value = inputElement.value;
+
+                if (inputElement.type === 'number' || inputElement.type === 'range') {
+                    value = parseFloat(value);
+                    if (inputElement.value.trim() === '' || isNaN(value)) {
+                        value = 'N/A';
+                    } else {
+                        if (inputElement.id === 'weedPercentage' || inputElement.id === 'chemicalReductionPercent') {
+                            value = `${value.toLocaleString()}%`;
+                        } else if (key.includes('Cost') || key.includes('systemCost')) {
+                            value = `$${value.toLocaleString()}`;
+                        } else if (key.includes('GPA')) {
+                            value = `${value.toLocaleString()} GPA`;
+                        } else if (key.includes('acres_per_hour')) {
+                            value = `${value.toLocaleString()} ac/hr`;
+                        } else {
+                            value = value.toLocaleString();
+                        }
+                    }
+                }
+                // Removed strong tag to ensure consistent font size
+                pdfInputsContent.innerHTML += `<div class="flex justify-between"><span>${labelText}:</span><span>${value}</span></div>`;
+            }
+        }
+
+        // Temporarily hide elements on the main page that should not be in the first PDF capture
+        if (inputsToHideForPdf) inputsToHideForPdf.classList.add('hide-for-pdf');
+        saveButton.classList.add('hide-for-pdf');
+        // Ensure the second page content container is hidden for the first capture
+        pdfSecondPageContent.classList.add('hide-for-pdf');
+        // Ensure the main footer is visible on the main page, but hidden for the first PDF capture
+        mainFooter.classList.add('hide-for-pdf');
+
+
+        // Add a small delay to ensure DOM updates are rendered before capture
+        await new Promise(resolve => setTimeout(resolve, 150));
+
+        try {
+            // Capture the main results section (Page 1 content)
+            const canvas1 = await html2canvas(exportableMainContent, {
+                useCORS: true,
+                scale: 2, // Increase scale for better resolution
+                logging: false,
+                onclone: (clonedDocument) => {
+                    // Hide elements on the cloned document that should not appear in PDF
+                    const clonedInputsToHide = clonedDocument.getElementById('inputsToHideForPdf');
+                    const clonedSaveButton = clonedDocument.getElementById('savePdfButton');
+                    const clonedModal = clonedDocument.getElementById('calculationModal');
+                    const clonedTooltips = clonedDocument.querySelectorAll('.tooltip-content');
+                    const clonedPdfSecondPageContent = clonedDocument.getElementById('pdfSecondPageContent');
+                    const clonedMainFooter = clonedDocument.getElementById('mainFooter'); // Also hide the main footer in the clone for page 1
+
+
+                    if (clonedInputsToHide) clonedInputsToHide.style.display = 'none';
+                    if (clonedSaveButton) clonedSaveButton.style.display = 'none';
+                    if (clonedModal) clonedModal.style.display = 'none';
+                    if (clonedPdfSecondPageContent) clonedPdfSecondPageContent.style.display = 'none'; // Ensure hidden in clone for first capture
+                    if (clonedMainFooter) clonedMainFooter.style.display = 'none'; // Ensure hidden in clone for first capture
+                    clonedTooltips.forEach(tooltip => {
+                        tooltip.style.visibility = 'hidden';
+                        tooltip.style.opacity = '0';
+                    });
+                }
+            });
+
+            const imgData1 = canvas1.toDataURL('image/png');
+            const pdf = new jsPDF({
+                orientation: 'p',
+                unit: 'pt',
+                format: 'a4'
+            });
+
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const canvas1Width = canvas1.width;
+            const canvas1Height = canvas1.height;
+            const ratio1 = canvas1Width / canvas1Height;
+
+            let imgHeight1 = (canvas1Height * pdfWidth) / canvas1Width;
+            let heightLeft1 = imgHeight1;
+            let position1 = 0;
+
+            pdf.addImage(imgData1, 'PNG', 0, position1, pdfWidth, imgHeight1);
+            heightLeft1 -= pdfHeight;
+
+            while (heightLeft1 >= 0) {
+                position1 = heightLeft1 - imgHeight1;
+                pdf.addPage();
+                pdf.addImage(imgData1, 'PNG', 0, position1, pdfWidth, imgHeight1);
+                heightLeft1 -= pdfHeight;
+            }
+
+            // Now, prepare and capture the content for the second page
+            pdf.addPage(); // Add a new page for the input summary and footer
+
+            // Temporarily show the second page content container on the *original* DOM for its capture
+            pdfSecondPageContent.classList.remove('hide-for-pdf');
+            await new Promise(resolve => setTimeout(resolve, 150)); // Delay for rendering
+
+            const canvas2 = await html2canvas(pdfSecondPageContent, {
+                useCORS: true,
+                scale: 2,
+                logging: false,
+                onclone: (clonedDocument) => {
+                    // Ensure only the second page content is visible in this clone
+                    const clonedPdfSecondPageContent = clonedDocument.getElementById('pdfSecondPageContent');
+                    if (clonedPdfSecondPageContent) {
+                        clonedPdfSecondPageContent.style.display = 'block';
+                        clonedPdfSecondPageContent.classList.remove('hide-for-pdf');
+                    }
+                    // Hide other parts that might appear
+                    const clonedMainContent = clonedDocument.getElementById('exportableResults');
+                    if (clonedMainContent) clonedMainContent.style.display = 'none';
+                }
+            });
+
+            const imgData2 = canvas2.toDataURL('image/png');
+            const canvas2Width = canvas2.width;
+            const canvas2Height = canvas2.height;
+            const ratio2 = canvas2Width / canvas2Height;
+
+            let imgWidth2 = pdfWidth; // Use full width for the second page content
+            let imgHeight2 = imgWidth2 / ratio2;
+
+            // Place the image at the top of the new page (y=0)
+            pdf.addImage(imgData2, 'PNG', 0, 0, imgWidth2, imgHeight2);
+
+            pdf.save('SmartSpray_ROI_Results.pdf');
+
+        } catch (err) {
+            console.error("Error generating PDF:", err);
+            const errorMessage = document.createElement('div');
+            errorMessage.textContent = 'Failed to generate PDF. Please try again or check the console for details.';
+            errorMessage.style.cssText = 'position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: #dc3545; color: white; padding: 10px 20px; border-radius: 5px; z-index: 1002;';
+            document.body.appendChild(errorMessage);
+            setTimeout(() => {
+                document.body.removeChild(errorMessage);
+            }, 5000);
+        } finally {
+            loadingOverlay.style.display = 'none';
+            // Restore visibility of original elements
+            if (inputsToHideForPdf) inputsToHideForPdf.classList.remove('hide-for-pdf');
+            saveButton.classList.remove('hide-for-pdf');
+            pdfSecondPageContent.classList.add('hide-for-pdf'); // Hide the entire second page content container again
+            mainFooter.classList.remove('hide-for-pdf'); // Ensure the main footer is visible again on the main page
+        }
+    });
+
+    // Initial calculation and visualization
+    document.addEventListener('DOMContentLoaded', () => {
+        if (inputs.weedPercentage && outputs.weedPercentageValue) outputs.weedPercentageValue.textContent = inputs.weedPercentage.value;
+        if (inputs.chemicalReductionPercent && outputs.chemicalReductionPercentValue) outputs.chemicalReductionPercentValue.textContent = inputs.chemicalReductionPercent.value;
+
+        calculateROI();
+    });
+
+</script>
+
+</body>
+</html>
